@@ -51,12 +51,16 @@ if __name__ == '__main__':
     cv2.createTrackbar('Width of line','controls',1,10,nothing)
     cv2.createTrackbar('Foreground grey','controls',0,255,nothing)
     cv2.createTrackbar('Background grey','controls',0,255,nothing)
+    cv2.createTrackbar('Gaussian width','controls',0,15,nothing)
+    cv2.createTrackbar('Kernel width','controls',0,15,nothing)
     cv2.setTrackbarPos('Red (line)','controls',150)
     cv2.setTrackbarPos('Green (line)','controls',150)
     cv2.setTrackbarPos('Blue (line)','controls',150)
     cv2.setTrackbarPos('Width of line','controls',3)
     cv2.setTrackbarPos('Foreground grey','controls',255)
     cv2.setTrackbarPos('Background grey','controls',0)
+    cv2.setTrackbarPos('Gaussian width','controls',3)
+    cv2.setTrackbarPos('Kernel width','controls',3)
    
 
 #some constants 
@@ -71,8 +75,17 @@ if __name__ == '__main__':
         linewidth = cv2.getTrackbarPos('Width of line','controls')
         greyfore = cv2.getTrackbarPos('Foreground grey','controls')
         greyback = cv2.getTrackbarPos('Background grey','controls')
+        gw = cv2.getTrackbarPos('Gaussian width','controls')
+        kw = cv2.getTrackbarPos('Kernel width','controls')
+        if (gw%2 == 0):
+           gw=gw+1
+        if (kw%2 == 0):
+           kw=kw+1
         if (linewidth%2==0):
-           linewidth=linewidth+1
+           linewidth=linewidth-1
+        cv2.setTrackbarPos('Gaussian width','controls',gw)
+        cv2.setTrackbarPos('Kernel width','controls',kw)
+       # cv2.setTrackbarPos('Width of line','controls',linewidth)
 
 # grab a new frame and preprocess
         ret, img = cam.read()
@@ -95,26 +108,26 @@ if __name__ == '__main__':
                 face_found=1;   
 
 #blur, threshold and make blocky (morphology) the input 
-        blur = cv2.GaussianBlur(img,(5,5),0)
+        blur = cv2.GaussianBlur(img,(gw,gw),0)
         ret, thresh=cv2.threshold(gray,mean_face[0],255,cv2.THRESH_BINARY)
-        kernel = np.ones((5,5),np.uint8)
+        kernel = np.ones((kw,kw),np.uint8)
         moony= cv2.morphologyEx(thresh,cv2.MORPH_OPEN,kernel)
 
-# find the edges, then blur them to give a broader edge profile
-        edges=cv2.Canny(moony,100,100,apertureSize=5)   
-        blur = cv2.GaussianBlur(edges,(linewidth,linewidth),0)
-
-
-#bit of conversion
-        bgrm= cv2.cvtColor(moony, cv2.COLOR_GRAY2BGR)
-        
 #colour it all in         
-        linecolour= (b,g,r)
+        bgrm= cv2.cvtColor(moony, cv2.COLOR_GRAY2BGR)
         backgroundcolour=(greyback,greyback,greyback)
         foregroundcolour=(greyfore,greyfore,greyfore)
         bgrm[moony!=0 ] =foregroundcolour 
         bgrm[moony==0 ] = backgroundcolour 
-        bgrm[blur!=0 ] =linecolour 
+# find the edges, then blur them to give a broader edge profile
+        edges=cv2.Canny(moony,100,100,apertureSize=5)   
+        if (linewidth>0):
+            blur = cv2.GaussianBlur(edges,(linewidth,linewidth),0)
+
+            linecolour= (b,g,r)
+            bgrm[blur!=0 ] =linecolour 
+
+        
     #output
         cv2.imshow('moonyout',bgrm)
         cv2.imshow('edges', edges)
