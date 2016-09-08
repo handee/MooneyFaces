@@ -6,6 +6,9 @@ import os
 from video import create_capture
 from common import clock, draw_str
 
+#default cascade
+default_cascade= "/usr/local/share/OpenCV/haarcascades/haarcascade_frontalface_alt.xml"
+
 help_message = '''
 USAGE: mooney2.py [--cascade <cascade_fn>] [--nested-cascade <cascade_fn>] [<video_source>]
 No arguments will just run on any attached webcam data
@@ -26,6 +29,7 @@ def draw_rects(img, rects, color):
         cv2.rectangle(img, (x1, y1), (x2, y2), color, 2)
 
 if __name__ == '__main__':
+    
 
     import sys, getopt
     print help_message
@@ -34,7 +38,7 @@ if __name__ == '__main__':
     try: video_src = video_src[0]
     except: video_src = 0
     args = dict(args)
-    cascade_fn = args.get('--cascade', "/usr/local/share/OpenCV/haarcascades/haarcascade_frontalface_alt.xml")
+    cascade_fn = args.get('--cascade', default_cascade)
     cascade = cv2.CascadeClassifier(cascade_fn)
 #look for output directory and create if necessary
     directory="out"
@@ -42,6 +46,7 @@ if __name__ == '__main__':
         os.makedirs(directory)
 #open video capture 
     cam = create_capture(video_src, fallback='synth:bg=../cpp/lena.jpg:noise=0.05')
+    
 
 # build control window
     cv2.namedWindow("controls")
@@ -56,7 +61,7 @@ if __name__ == '__main__':
     cv2.setTrackbarPos('Red (line)','controls',150)
     cv2.setTrackbarPos('Green (line)','controls',150)
     cv2.setTrackbarPos('Blue (line)','controls',150)
-    cv2.setTrackbarPos('Width of line','controls',3)
+    cv2.setTrackbarPos('Width of line','controls',0)
     cv2.setTrackbarPos('Foreground grey','controls',255)
     cv2.setTrackbarPos('Background grey','controls',0)
     cv2.setTrackbarPos('Gaussian width','controls',3)
@@ -66,8 +71,9 @@ if __name__ == '__main__':
 #some constants 
     n=0
     mean_face=(126,126,126)
-    face_found=0
+    fcords=[]
     while True:   
+        face_found=0;   
  # Interaction: get trackbar positions
         r = cv2.getTrackbarPos('Red (line)','controls')
         g = cv2.getTrackbarPos('Green (line)','controls')
@@ -94,18 +100,18 @@ if __name__ == '__main__':
 
 # if we've not found a face look for faces
 # and get hold of the mean face greylevel for moonification
-        if (face_found==0):
-            rects = detect(gray, cascade)
-            vis = img.copy()
-            if (len(rects)>=1):
-                for x1, y1, x2, y2 in rects:
-                    x1=x1-20
-                    y1=y1-20 
-                    x2=x2+20 
-                    y2=y2+20 
-                roi = gray[y1:y2, x1:x2] 
-                mean_face=cv2.mean(roi)
-                face_found=1;   
+        rects = detect(gray, cascade)
+        vis = img.copy()
+        if (len(rects)>=1):
+            for x1, y1, x2, y2 in rects:
+                x1=x1-20
+                y1=y1-20 
+                x2=x2+20 
+                y2=y2+20 
+            roi = gray[y1:y2, x1:x2] 
+            mean_face=cv2.mean(roi)
+            face_found=1;   
+            fcords=[y1,y2,x1,x2]
 
 #blur, threshold and make blocky (morphology) the input 
         blur = cv2.GaussianBlur(img,(gw,gw),0)
@@ -131,10 +137,19 @@ if __name__ == '__main__':
     #output
         cv2.imshow('moonyout',bgrm)
         cv2.imshow('edges', edges)
-#set up filename; if you want to preserve, just change the sub string "mooney" 
+# set up file output ; 
+# by default you'll overright files each run
+# if you want to preserve, just change the sub string "mooney" 
 # and you'll get a different time series saved to out subdirectory
         fn="out/mooney"+str(n).rjust(4,'0')+".png" 
         cv2.imwrite(fn,bgrm);
+        if (face_found):
+# output actual face region separately
+# if you want to preserve, just change the sub string "face" 
+# and you'll get a different time series saved to out subdirectory
+            fi = bgrm[fcords[0]-20:fcords[1]+20, fcords[2]-20:fcords[3]+20] 
+            fn="out/face"+str(n).rjust(4,'0')+".png" 
+            cv2.imwrite(fn,fi);
         n=n+1
  
 
